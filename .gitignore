@@ -1,0 +1,26 @@
+# Python caches
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE / editor metadata
+.idea/
+.vscode/
+
+# Generated runtime outputs
+outputs/
+_out/
+trajectory_results_*/
+trajectory_plot.png
+trajectory_error_plot.png
+trajectory_data.csv
+summary.txt
+
+# OS noise
+.DS_Store
+Thumbs.db
