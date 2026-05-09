@@ -82,8 +82,8 @@ HOST = "localhost"
 PORT = 2000
 TIMEOUT = 30.0
 
-WINDOW_WIDTH = 1920
-WINDOW_HEIGHT = 1080
+WINDOW_WIDTH = 1280
+WINDOW_HEIGHT = 720
 CAMERA_FOV = 90.0
 
 
@@ -1186,6 +1186,154 @@ def debug_draw_arrow(world, start, end, color=None, life_time=0.08):
         arrow_size=0.7,
         color=color,
         life_time=life_time,
+    )
+
+
+def debug_draw_camera_coordinate_system(world, camera_transform, axis_length=1.0, life_time=0.08):
+    """
+    在相机位置绘制一个小的坐标系（三条细线），用于可视化相机的位姿。
+    
+    Args:
+        world: CARLA world 对象
+        camera_transform: 相机的 Transform（位置和姿态）
+        axis_length: 坐标轴的长度（米），默认 1.0 米
+        life_time: 线条的存活时间（秒），默认 0.08 秒（每帧刷新）
+    
+    绘制的坐标系：
+        - X 轴（红色）：相机右侧方向
+        - Y 轴（绿色）：相机上方方向（UE 坐标系）
+        - Z 轴（蓝色）：相机前方方向（光轴）
+    
+    用途：
+        - 直观地看到相机在世界中的位置和朝向
+        - 验证相机安装位置和姿态是否正确
+        - 理解相机坐标系与世界坐标系的关系
+    """
+    # 获取相机位置
+    camera_location = camera_transform.location
+    
+    # 获取相机的三个方向向量（在 UE 坐标系中）
+    forward = camera_transform.get_forward_vector()  # Z 轴（前方）
+    right = camera_transform.get_right_vector()      # X 轴（右侧）
+    up = camera_transform.get_up_vector()            # Y 轴（上方）
+    
+    # 计算三个轴的终点位置
+    x_end = carla.Location(
+        camera_location.x + right.x * axis_length,
+        camera_location.y + right.y * axis_length,
+        camera_location.z + right.z * axis_length,
+    )
+    
+    y_end = carla.Location(
+        camera_location.x + up.x * axis_length,
+        camera_location.y + up.y * axis_length,
+        camera_location.z + up.z * axis_length,
+    )
+    
+    z_end = carla.Location(
+        camera_location.x + forward.x * axis_length,
+        camera_location.y + forward.y * axis_length,
+        camera_location.z + forward.z * axis_length,
+    )
+    
+    # 绘制三条细线（使用较暗的颜色，降低亮度）
+    # X 轴 - 暗红色（右侧）
+    world.debug.draw_line(
+        camera_location, x_end,
+        thickness=0.02,  # 很细的线条
+        color=carla.Color(180, 0, 0),  # 暗红色
+        life_time=life_time
+    )
+    
+    # Y 轴 - 暗绿色（上方）
+    world.debug.draw_line(
+        camera_location, y_end,
+        thickness=0.02,
+        color=carla.Color(0, 180, 0),  # 暗绿色
+        life_time=life_time
+    )
+    
+    # Z 轴 - 暗蓝色（前方/光轴）
+    world.debug.draw_line(
+        camera_location, z_end,
+        thickness=0.02,
+        color=carla.Color(0, 0, 180),  # 暗蓝色
+        life_time=life_time
+    )
+
+
+def debug_draw_vehicle_coordinate_system(world, vehicle, axis_length=2.0, life_time=0.08):
+    """
+    在车辆中心绘制一个坐标系（三条细线），用于可视化车辆的位姿。
+    
+    Args:
+        world: CARLA world 对象
+        vehicle: 车辆 actor
+        axis_length: 坐标轴的长度（米），默认 2.0 米（比相机长一些）
+        life_time: 线条的存活时间（秒），默认 0.08 秒（每帧刷新）
+    
+    绘制的坐标系：
+        - X 轴（青色）：车辆右侧方向
+        - Y 轴（品红）：车辆上方方向
+        - Z 轴（黄色）：车辆前方方向（车头）
+    
+    用途：
+        - 直观地看到车辆在世界中的位置和朝向
+        - 验证车辆控制是否正确
+        - 理解车辆局部坐标系与世界坐标系的关系
+        - 对比车辆坐标系和相机坐标系的差异
+    """
+    # 获取车辆Transform
+    vehicle_transform = vehicle.get_transform()
+    vehicle_location = vehicle_transform.location
+    
+    # 获取车辆的三个方向向量
+    forward = vehicle_transform.get_forward_vector()  # 车头方向
+    right = vehicle_transform.get_right_vector()      # 车辆右侧
+    up = vehicle_transform.get_up_vector()            # 车辆上方
+    
+    # 计算三个轴的终点位置
+    x_end = carla.Location(
+        vehicle_location.x + right.x * axis_length,
+        vehicle_location.y + right.y * axis_length,
+        vehicle_location.z + right.z * axis_length,
+    )
+    
+    y_end = carla.Location(
+        vehicle_location.x + up.x * axis_length,
+        vehicle_location.y + up.y * axis_length,
+        vehicle_location.z + up.z * axis_length,
+    )
+    
+    z_end = carla.Location(
+        vehicle_location.x + forward.x * axis_length,
+        vehicle_location.y + forward.y * axis_length,
+        vehicle_location.z + forward.z * axis_length,
+    )
+    
+    # 绘制三条细线（使用与相机不同的颜色，便于区分）
+    # X 轴 - 青色（右侧）
+    world.debug.draw_line(
+        vehicle_location, x_end,
+        thickness=0.03,  # 稍微粗一点，便于区分
+        color=carla.Color(0, 180, 180),  # 青色
+        life_time=life_time
+    )
+    
+    # Y 轴 - 品红（上方）
+    world.debug.draw_line(
+        vehicle_location, y_end,
+        thickness=0.03,
+        color=carla.Color(180, 0, 180),  # 品红色
+        life_time=life_time
+    )
+    
+    # Z 轴 - 黄色（前方/车头）
+    world.debug.draw_line(
+        vehicle_location, z_end,
+        thickness=0.03,
+        color=carla.Color(180, 180, 0),  # 黄色
+        life_time=life_time
     )
 
 

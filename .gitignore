@@ -21,6 +21,16 @@ trajectory_error_plot.png
 trajectory_data.csv
 summary.txt
 
+# CARLA lane demo runtime artifacts
+lane_detection_demos/captures/
+lane_detection_demos/offline_outputs/
+lane_detection_demos/nav_learning_project/outputs/
+
+# Very large downloaded model packs. Keep download instructions in docs instead.
+lane_detection_demos/model/ufld-v2/resources/
+lane_detection_demos/model/ufld-v2/resources.tar
+lane_detection_demos/model/ufld-v2/resources.tar.gz
+
 # OS noise
 .DS_Store
 Thumbs.db
