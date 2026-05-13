@@ -1,99 +1,25 @@
+﻿# -*- coding: utf-8 -*-
+"""实时 demo 的命令行参数。
+
+这里保留了原始 demo 的大部分参数。学习时可以把参数分成几组看：
+
+    - 窗口/相机/YOLOP：width、height、yolop-onnx、threshold。
+    - 检测节奏和稳定性：detect-interval、stability-confirmations。
+    - 车道几何：scan_rows、turn_shift_ratio、min_confidence。
+    - AR 箭头视觉：ground_arrow_*、arrow_flow_*。
+    - 世界锚点：arrow_projection、world_anchor_expire_mode。
+"""
+
 import argparse
-from dataclasses import dataclass, fields
-from typing import Optional
 
-from .paths import lane
+from .runtime_deps import lane
+from .models import DEFAULT_HEIGHT, DEFAULT_WIDTH
 
-
-DEFAULT_WIDTH = 1280
-DEFAULT_HEIGHT = 720
-
-
-@dataclass
-class AppConfig:
-    # Window and camera stream.
-    width: int = DEFAULT_WIDTH
-    height: int = DEFAULT_HEIGHT
-    display_fps: int = 60
-    camera_fps: float = 0.0
-
-    # YOLOP model.
-    yolop_onnx: str = str(lane.DEFAULT_YOLOP_ONNX)
-    yolop_width: int = lane.DEFAULT_YOLOP_WIDTH
-    yolop_height: int = lane.DEFAULT_YOLOP_HEIGHT
-    yolop_threshold: float = 0.45
-    normalize: str = "imagenet"
-
-    # Background detection cadence and stability lock.
-    detect_interval: float = 1.0
-    arrow_hold_seconds: float = 3.0
-    stability_confirmations: int = 2
-    stability_window_seconds: float = 3.2
-    max_candidate_history: int = 5
-    stable_target_radius: float = 130.0
-    arrow_smoothing_alpha: float = 0.35
-
-    # Lane-mask geometry scan. These are passed to offline_yolop_turn_experiment.
-    roi_top_ratio: float = 0.38
-    scan_top_ratio: float = 0.38
-    scan_bottom_ratio: float = 0.92
-    scan_rows: int = 42
-    scan_band: int = 4
-    min_segment_width: int = 2
-    max_segment_width_ratio: float = 0.24
-    vehicle_x_ratio: float = 0.50
-    initial_half_lane_width_ratio: float = 0.17
-    max_jump_ratio: float = 0.16
-    smooth_samples: int = 36
-
-    # Navigation geometry.
-    arrow_start_y_ratio: float = 0.84
-    arrow_start_meters: float = 5.0
-    min_arrow_length_meters: float = 2.0
-    max_target_forward_meters: float = 15.0
-    straight_target_forward_meters: float = 10.0
-    straight_right_meters: Optional[float] = None
-    straight_validation_samples: int = 9
-    straight_validation_ratio: float = 0.66
-    min_straight_validation_checks: int = 4
-    straight_center_tolerance_ratio: float = 0.11
-    straight_boundary_margin_px: float = 6.0
-    min_lane_width_px: float = 70.0
-    turn_target_y_ratio: float = 0.48
-    turn_shift_ratio: float = 0.055
-    turn_min_shift_ratio: float = 0.070
-    target_average_points: int = 5
-    min_center_points: int = 8
-    min_confidence: float = 0.18
-
-    # Arrow drawing.
-    arrow_style: str = "neon"
-    arrow_width: float = 9.0
-    arrow_glow_width: float = 34.0
-    arrow_glow_alpha: float = 0.16
-    arrow_mid_alpha: float = 0.28
-    arrow_body_alpha: float = 0.82
-    arrow_flow_alpha: float = 0.34
-    arrow_flow_speed: float = 0.80
-    arrow_pulse_speed: float = 0.85
-    arrow_chevrons: int = 2
-    arrow_chevron_len: float = 28.0
-    arrow_show_particles: bool = False
-    arrow_head_min_len: float = 42.0
-    arrow_head_max_len: float = 78.0
-    arrow_anchor_radius: float = 8.0
-
-    # Debug drawing.
-    show_debug_geometry: bool = False
-    show_debug_mask: bool = False
-
-    # Filled by the CARLA camera session at runtime.
-    camera_k: object = None
-    camera_mount_transform: object = None
-    vehicle_ground_z: float = 0.0
-
-
-def add_common_arguments(parser):
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Realtime CARLA YOLOP navigation-intent world-anchored AR arrow demo.",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
     parser.add_argument("--width", type=int, default=DEFAULT_WIDTH)
     parser.add_argument("--height", type=int, default=DEFAULT_HEIGHT)
     parser.add_argument("--display-fps", type=int, default=60)
@@ -105,7 +31,7 @@ def add_common_arguments(parser):
     parser.add_argument("--normalize", choices=["imagenet", "zero-one"], default="imagenet")
 
     parser.add_argument("--detect-interval", type=float, default=1.0)
-    parser.add_argument("--arrow-hold-seconds", type=float, default=3.0)
+    parser.add_argument("--arrow-hold-seconds", type=float, default=6.0)
     parser.add_argument("--stability-confirmations", type=int, default=2)
     parser.add_argument("--stability-window-seconds", type=float, default=3.2)
     parser.add_argument("--max-candidate-history", type=int, default=5)
@@ -124,10 +50,16 @@ def add_common_arguments(parser):
     parser.add_argument("--max-jump-ratio", type=float, default=0.16)
     parser.add_argument("--smooth-samples", type=int, default=36)
     parser.add_argument("--arrow-start-y-ratio", type=float, default=0.84)
-    parser.add_argument("--arrow-start-meters", type=float, default=5.0)
+    parser.add_argument("--arrow-start-meters", type=float, default=10.0)
     parser.add_argument("--min-arrow-length-meters", type=float, default=2.0)
+    parser.add_argument(
+        "--turn-target-min-forward-meters",
+        type=float,
+        default=7.0,
+        help="Minimum forward distance for turn target candidates. Kept separate from arrow start so moving the start does not change turn endpoints.",
+    )
     parser.add_argument("--max-target-forward-meters", type=float, default=15.0)
-    parser.add_argument("--straight-target-forward-meters", type=float, default=10.0)
+    parser.add_argument("--straight-target-forward-meters", type=float, default=15.0)
     parser.add_argument(
         "--straight-right-meters",
         type=float,
@@ -147,6 +79,11 @@ def add_common_arguments(parser):
     parser.add_argument("--min-center-points", type=int, default=8)
     parser.add_argument("--min-confidence", type=float, default=0.18)
 
+    parser.add_argument("--arrow-projection", choices=["world", "ground", "screen"], default="world")
+    parser.add_argument("--world-anchor-fallback-screen", action="store_true", default=False)
+    parser.add_argument("--world-anchor-expire-mode", choices=["pass", "time"], default="pass")
+    parser.add_argument("--world-anchor-pass-point", choices=["target", "center", "start"], default="target")
+    parser.add_argument("--world-anchor-pass-margin-m", type=float, default=-0.50)
     parser.add_argument("--arrow-style", choices=["neon", "simple"], default="neon")
     parser.add_argument("--arrow-width", type=float, default=9.0)
     parser.add_argument("--arrow-glow-width", type=float, default=34.0)
@@ -162,26 +99,20 @@ def add_common_arguments(parser):
     parser.add_argument("--arrow-head-min-len", type=float, default=42.0)
     parser.add_argument("--arrow-head-max-len", type=float, default=78.0)
     parser.add_argument("--arrow-anchor-radius", type=float, default=8.0)
+    parser.add_argument("--ground-arrow-body-width-m", type=float, default=0.62)
+    parser.add_argument("--ground-arrow-head-width-m", type=float, default=1.35)
+    parser.add_argument("--ground-arrow-head-length-m", type=float, default=1.35)
+    parser.add_argument("--ground-arrow-glow-extra-width-m", type=float, default=0.34)
+    parser.add_argument("--ground-arrow-alpha", type=float, default=0.48)
+    parser.add_argument("--ground-arrow-glow-alpha", type=float, default=0.18)
+    parser.add_argument("--ground-arrow-inner-alpha", type=float, default=0.12)
+    parser.add_argument("--ground-arrow-edge-alpha", type=float, default=0.32)
+    parser.add_argument("--ground-arrow-flow-length-m", type=float, default=0.70)
+    parser.add_argument("--ground-arrow-min-length-m", type=float, default=1.20)
+    parser.add_argument("--render-arrow-length-scale", type=float, default=0.67)
 
     parser.add_argument("--show-debug-geometry", action="store_true", default=False)
     parser.add_argument("--show-debug-mask", action="store_true", default=False)
-
-
-def config_from_args(args):
-    config = AppConfig()
-    for field in fields(config):
-        if hasattr(args, field.name):
-            setattr(config, field.name, getattr(args, field.name))
-    config.width = int(config.width)
-    config.height = int(config.height)
-    return config
-
-
-def build_parser(description):
-    parser = argparse.ArgumentParser(
-        description=description,
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-    )
-    add_common_arguments(parser)
-    return parser
-
+    args = parser.parse_args()
+    args.vehicle_ground_z = 0.0
+    return args
